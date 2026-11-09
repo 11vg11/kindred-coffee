@@ -33,7 +33,7 @@ This is the implementation plan and status record for the coffee app. It is base
 | `frontend-stage` | Frontend integration | Pull request and `frontend-ci` check required |
 | `fronend-stage` | Old, misspelled branch | Retained unchanged; do not use for new work |
 
-Pull requests are required on the four working branches; force pushes and branch deletion are disabled. The repository has no required reviewer count. `frontend-stage` is the only branch with a required CI check. This branch is preparing a promotion workflow and separate QA/lead self-attestation labels; those gates are not active until the setup PR is merged and branch protection is updated.
+Pull requests are required on the four working branches; force pushes and branch deletion are disabled. Force pushes and branch deletion are disabled. The required reviewer count is zero because this is a solo learning repository. `frontend-stage` requires `frontend-ci`; `stage` and `main` require the promotion checks configured by the current setup PR. The `backend-stage` CI check is also being added by this PR.
 
 The frontend “Surprise me” feature and its test are on `frontend-stage`. The feature was reverted from `main`; `stage` and `backend-stage` have not yet received it.
 
@@ -90,8 +90,9 @@ In this solo learning repository, QA and lead labels/checklists are self-atteste
 - ✅ Created `stage`, `backend-stage`, and correctly spelled `frontend-stage` from the application baseline.
 - ✅ Protected `main`, `stage`, `backend-stage`, and `frontend-stage` with pull-request requirements.
 - ✅ Required the `frontend-ci` check on `frontend-stage`.
-- 🟡 Add `promotion-ci` to `stage` and add `promotion-ci` plus `qa-lead-signoff` to `main` after the setup workflow lands.
-- 🟡 Configure the QA and lead labels/checklists as self-attested gates for main promotion.
+- ✅ Require `promotion-ci` on `stage`.
+- ✅ Require `promotion-ci` and `qa-lead-signoff` on `main`.
+- 🟡 Add `promotion-ci` to `backend-stage` after the workflow update is merged.
 - ⬜ Add required CI checks to `backend-stage`, `stage`, and `main` after those workflows exist.
 - ⬜ Decide whether to remove the obsolete `fronend-stage` branch; do not delete it without approval.
 - ⬜ Add reviewer requirements if the repository gains additional reviewers.
@@ -121,8 +122,8 @@ In this solo learning repository, QA and lead labels/checklists are self-atteste
 - ✅ Failure posts a comment on the pull request with a link to the run.
 - ✅ The `frontend-ci` check is required before merging into `frontend-stage`.
 - 🟡 The frontend has coverage for menu rendering, category filtering, cart totals, checkout, and the “Surprise me” feature on `frontend-stage`.
-- 🟡 A promotion workflow is being prepared to run frontend tests and both production builds for PRs to `stage` and `main`.
-- 🟡 Main-promotion QA and lead checklists/labels are self-attestation gates; not independent approvals.
+- 🟡 Promotion CI runs frontend tests and both production builds for PRs to `stage` and `main`.
+- 🟡 Main-promotion QA and lead checklists/labels are required self-attestation gates; they are not independent approvals.
 
 ### Work still needed
 
