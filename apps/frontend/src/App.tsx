@@ -13,6 +13,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [ordering, setOrdering] = useState(false);
   const [confirmation, setConfirmation] = useState("");
+  const [cozyMode, setCozyMode] = useState(false);
 
   useEffect(() => {
     getProducts()
@@ -81,7 +82,7 @@ export default function App() {
   }
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${cozyMode ? " cozy-mode" : ""}`}>
       <header className="topbar">
         <a className="brand" href="#" aria-label="Kindred Coffee home">
           <span className="brand-mark">k.</span>
@@ -91,9 +92,21 @@ export default function App() {
           <a href="#menu">Our menu</a>
           <a href="#story">Our story</a>
         </nav>
-        <a className="cart-link" href="#your-order" aria-label={`Your order, ${itemCount} items`}>
-          Your order <span className="cart-count">{itemCount}</span>
-        </a>
+        <div className="topbar-actions">
+          <button
+            aria-label={cozyMode ? "Switch to classic colors" : "Switch to cozy colors"}
+            aria-pressed={cozyMode}
+            className="theme-toggle"
+            onClick={() => setCozyMode((current) => !current)}
+            type="button"
+          >
+            <span aria-hidden="true">{cozyMode ? "☕" : "🌷"}</span>
+            {cozyMode ? "Classic colors" : "Cozy colors"}
+          </button>
+          <a className="cart-link" href="#your-order" aria-label={`Your order, ${itemCount} items`}>
+            Your order <span className="cart-count">{itemCount}</span>
+          </a>
+        </div>
       </header>
 
       <main>

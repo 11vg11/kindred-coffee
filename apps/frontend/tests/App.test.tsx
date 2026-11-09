@@ -28,9 +28,26 @@ const products: Product[] = [
   },
 ];
 
-describe("Surprise me", () => {
+describe("storefront enhancements", () => {
   beforeEach(() => {
     vi.mocked(getProducts).mockResolvedValue(products);
+  });
+
+  it("toggles the storefront between classic and cozy colors", async () => {
+    render(<App />);
+
+    const appShell = document.querySelector(".app-shell");
+    const themeToggle = screen.getByRole("button", { name: "Switch to cozy colors" });
+    expect(appShell).not.toHaveClass("cozy-mode");
+    expect(themeToggle).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(themeToggle);
+
+    expect(appShell).toHaveClass("cozy-mode");
+    expect(screen.getByRole("button", { name: "Switch to classic colors" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
   });
 
   it("adds a randomly selected menu item to the order", async () => {
