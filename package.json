@@ -13,6 +13,7 @@
     "start": "npm run start --workspace @coffee-shop/backend"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "jsdom": "^26.1.0"
   }
 }
