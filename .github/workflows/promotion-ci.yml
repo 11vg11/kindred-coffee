@@ -1,0 +1,144 @@
+name: Promotion CI
+
+on:
+  pull_request:
+    branches:
+      - backend-stage
+      - stage
+      - main
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
+      - edited
+      - labeled
+      - unlabeled
+  push:
+    branches:
+      - backend-stage
+      - stage
+      - main
+      - "feature/**"
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: promotion-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  promotion-ci:
+    name: promotion-ci
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run frontend tests
+        run: npm run test:frontend
+
+      - name: Build frontend and backend
+        run: npm run build
+
+  qa-lead-signoff:
+    name: qa-lead-signoff
+    if: github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require QA and lead self-attestation
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            const { data: pullRequest } = await github.rest.pulls.get({
+              owner,
+              repo,
+              pull_number: issue_number,
+            });
+            const labels = new Set(pullRequest.labels.map((label) => label.name));
+            const body = pullRequest.body ?? "";
+            const section = (heading, nextHeading) => {
+              const start = body.indexOf(heading);
+              if (start < 0) return "";
+              const contentStart = start + heading.length;
+              const end = nextHeading ? body.indexOf(nextHeading, contentStart) : body.length;
+              return body.slice(contentStart, end < 0 ? body.length : end);
+            };
+            const allItemsChecked = (text) => {
+              const items = [...text.matchAll(/^\s*-\s*\[([ xX])\]\s+.+$/gm)];
+              return items.length > 0 && items.every((item) => item[1].toLowerCase() === "x");
+            };
+            const qaSection = section(
+              "## QA sign-off (required for promotion to `main`)",
+              "## Lead code review (required for promotion to `main`)",
+            );
+            const leadSection = section(
+              "## Lead code review (required for promotion to `main`)",
+              "Solo-learning note:",
+            );
+            const missing = [];
+            if (!labels.has("qa-approved")) missing.push("add the `qa-approved` label");
+            if (!allItemsChecked(qaSection)) missing.push("complete every QA sign-off checklist item");
+            if (!labels.has("lead-approved")) missing.push("add the `lead-approved` label");
+            if (!allItemsChecked(leadSection)) missing.push("complete every lead code review checklist item");
+
+            if (missing.length > 0) {
+              const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+              const marker = "<!-- qa-lead-signoff-gate -->";
+              const message = `${marker}\nMain promotion is blocked. Before merging, ${missing.join("; ")}. These are solo-learning self-attestations, not independent approvals. CI details: ${runUrl}`;
+              const { data: comments } = await github.rest.issues.listComments({
+                owner,
+                repo,
+                issue_number,
+                per_page: 100,
+              });
+              const existing = comments.find((comment) => comment.body?.includes(marker));
+              if (existing) {
+                await github.rest.issues.updateComment({
+                  owner,
+                  repo,
+                  comment_id: existing.id,
+                  body: message,
+                });
+              } else {
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number,
+                  body: message,
+                });
+              }
+              core.setFailed(message);
+            } else {
+              const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+              const marker = "<!-- qa-lead-signoff-gate -->";
+              const { data: comments } = await github.rest.issues.listComments({
+                owner,
+                repo,
+                issue_number,
+                per_page: 100,
+              });
+              const existing = comments.find((comment) => comment.body?.includes(marker));
+              if (existing) {
+                await github.rest.issues.updateComment({
+                  owner,
+                  repo,
+                  comment_id: existing.id,
+                  body: `${marker}\nQA and lead self-attestation checks passed. This is a solo-learning gate, not an independent review. CI details: ${runUrl}`,
+                });
+              }
+              core.info("QA and lead checklist and labels are present.");
+            }
