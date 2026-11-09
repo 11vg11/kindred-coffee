@@ -1,0 +1,55 @@
+import type { Product } from "../types.js";
+
+export const products: Product[] = [
+  {
+    id: "cappuccino",
+    name: "Cappuccino",
+    description: "Double espresso, steamed milk, silky foam.",
+    price: 4.5,
+    category: "Espresso",
+    badge: "House favorite",
+    icon: "☕",
+  },
+  {
+    id: "oat-latte",
+    name: "Oat latte",
+    description: "Our signature espresso with creamy oat milk.",
+    price: 5.25,
+    category: "Espresso",
+    icon: "🥛",
+  },
+  {
+    id: "flat-white",
+    name: "Flat white",
+    description: "A velvety double shot with fine microfoam.",
+    price: 4.75,
+    category: "Espresso",
+    icon: "🤎",
+  },
+  {
+    id: "pour-over",
+    name: "Pour over",
+    description: "Slow-brewed single origin, bright and balanced.",
+    price: 4.25,
+    category: "Brewed",
+    badge: "Single origin",
+    icon: "🫖",
+  },
+  {
+    id: "cold-brew",
+    name: "Cold brew",
+    description: "Steeped for 18 hours. Smooth, never bitter.",
+    price: 4.75,
+    category: "Cold drinks",
+    icon: "🧊",
+  },
+  {
+    id: "vanilla-cold-foam",
+    name: "Vanilla cold foam",
+    description: "Cold brew topped with a cloud of vanilla foam.",
+    price: 5.5,
+    category: "Cold drinks",
+    badge: "A little treat",
+    icon: "✨",
+  },
+];
