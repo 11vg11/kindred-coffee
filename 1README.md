@@ -1,246 +1,294 @@
-# Kindred Coffee — Final DevOps Roadmap
+# Kindred Coffee — Project Guide and Infrastructure Roadmap
 
-Repository: [11vg11/kindred-coffee](https://github.com/11vg11/kindred-coffee)
+Kindred Coffee is a full-stack coffee shop MVP and a learning project for building, testing, and promoting application changes through GitHub. This guide describes the current implementation and separates working features from planned infrastructure.
 
-This is the implementation plan and status record for the coffee app. It is based on the actual repository and GitHub branches, not the earlier NestJS/Nginx assumptions.
+**Repository:** [11vg11/kindred-coffee](https://github.com/11vg11/kindred-coffee)
 
-## Status key
+**Status last verified:** 2026-11-09
 
-- ✅ Done and verified
-- 🟡 Partially done
-- ⬜ Not started
-- ◻ Optional future work
+## Contents
 
-**Last verified:** 2026-11-09
+- [Project overview](#project-overview)
+- [Architecture](#architecture)
+- [Requirements and local setup](#requirements-and-local-setup)
+- [API reference](#api-reference)
+- [Testing and builds](#testing-and-builds)
+- [Branches and promotion workflow](#branches-and-promotion-workflow)
+- [Current delivery status](#current-delivery-status)
+- [Infrastructure roadmap](#infrastructure-roadmap)
+- [Security and operational guidance](#security-and-operational-guidance)
 
-## Current application
+## Project overview
 
-- Frontend: React, TypeScript, and Vite in `apps/frontend`.
-- Backend: Express and TypeScript in `apps/backend` (this is not NestJS).
-- Root npm workspaces: `npm ci`, `npm run dev`, and `npm run build`.
-- The Vite development server proxies `/api` to the backend on port `3001`.
-- The API provides health and menu endpoints, accepts validated orders, and exposes the in-memory order list.
-- Orders are not persistent; restarting the backend clears them. There is no database yet.
-- The frontend and backend were started together and an order was submitted through the browser. Invalid orders were rejected. A clean-lockfile install and production build also passed.
+The application provides a small coffee menu and an ordering experience. The storefront loads products from the API, filters by category, maintains a cart, calculates a displayed subtotal, and submits an order. The backend validates submitted product IDs and quantities and calculates the authoritative total from its own menu prices.
 
-## Git and CI status
+### Implemented
 
-| Branch | Purpose | Current protection |
+- React storefront with category filters, cart controls, and checkout confirmation.
+- Express API with health, product menu, and order endpoints.
+- Request validation and server-side order pricing.
+- Frontend tests for menu rendering, category filtering, cart totals, and order confirmation.
+- GitHub Actions workflows for frontend validation and promotion checks on the branches where those workflows are installed.
+
+### Current limitations
+
+- Orders are held in process memory. They are lost when the backend restarts, and there is no database.
+- No authentication, payment processing, or production-ready customer/order management is implemented.
+- The Vite proxy is for local development; production routing has not been configured.
+- The project has no Docker images, deployment automation, cloud infrastructure, or Kubernetes configuration yet.
+- Backend unit and API integration tests have not been added.
+
+This is an MVP and learning environment, not a production ordering service.
+
+## Architecture
+
+| Component | Technology | Location | Responsibility |
+| --- | --- | --- | --- |
+| Web client | React, TypeScript, Vite | `apps/frontend` | Menu, cart, checkout UI |
+| API | Express, TypeScript | `apps/backend` | Health, products, order validation and totals |
+| Workspace | npm workspaces | repository root | Shared dependency installation and scripts |
+| CI | GitHub Actions | `.github/workflows` | Frontend checks and promotion checks |
+
+During local development, the Vite server proxies requests under `/api` to the backend at `http://localhost:3001`. The frontend and backend are started together by the root `dev` script.
+
+### Repository layout
+
+```text
+.
+├── .github/
+│   ├── PULL_REQUEST_TEMPLATE.md
+│   └── workflows/
+├── apps/
+│   ├── backend/
+│   │   └── src/
+│   │       ├── data/
+│   │       ├── routes/
+│   │       └── server.ts
+│   └── frontend/
+│       ├── src/
+│       └── tests/
+├── package.json
+├── package-lock.json
+├── README.md
+└── 1README.md
+```
+
+## Requirements and local setup
+
+Install a current Node.js LTS release and npm. Then, from the repository root:
+
+```sh
+npm ci
+npm run dev
+```
+
+Open the frontend URL printed by Vite, usually `http://localhost:5173`. The API listens on port `3001` by default.
+
+### Available commands
+
+| Command | Purpose |
+| --- | --- |
+| `npm ci` | Install exact dependencies from the lockfile |
+| `npm run dev` | Start frontend and backend in development mode |
+| `npm run test:frontend` | Run frontend tests |
+| `npm run build` | Build frontend and compile backend |
+| `npm start` | Start the compiled backend |
+
+The backend reads `PORT` when set and otherwise uses port `3001`. The development proxy currently targets port `3001`, so changing the backend port may require updating the Vite configuration as well.
+
+## API reference
+
+All endpoints are served by the backend under `/api`.
+
+| Method | Path | Purpose |
 | --- | --- | --- |
-| `main` | Reviewed release baseline | Pull request required; no status check required |
-| `stage` | Integrate frontend, backend, and DevOps work | Pull request required; no status check required |
-| `backend-stage` | Backend integration | Pull request required; no status check required yet |
-| `frontend-stage` | Frontend integration | Pull request, `frontend-ci`, and `promotion-ci` required |
-| `fronend-stage` | Old, misspelled branch | Retained unchanged; do not use for new work |
+| `GET` | `/api/health` | Return API health status |
+| `GET` | `/api/products` | Return the available menu products |
+| `GET` | `/api/orders` | Return orders held in backend memory |
+| `POST` | `/api/orders` | Validate and create an order |
 
-Pull requests are required on the four working branches; force pushes and branch deletion are disabled. The required reviewer count is zero because this is a solo learning repository. `frontend-stage` requires `frontend-ci` and `promotion-ci`; `stage` requires `promotion-ci`; `main` requires `promotion-ci` and `qa-lead-signoff`. `backend-stage` does not require a CI check until the workflow is installed there.
+Create an order by sending product IDs and quantities. Prices and names are resolved by the backend; client-supplied prices are not used.
 
-The frontend “Surprise me” feature and its test are on `frontend-stage`. The feature was reverted from `main`; `stage` and `backend-stage` have not yet received it.
+```json
+{
+  "items": [
+    { "productId": "cappuccino", "quantity": 2 }
+  ]
+}
+```
 
-Recommended workflow:
+Each order must include at least one known product. Each item quantity must be an integer from 1 to 20. Invalid requests return HTTP `400`; successful creation returns HTTP `201` with the created order. The order total is calculated from the server's product catalog.
+
+## Testing and builds
+
+Run the frontend test suite and production builds before submitting changes:
+
+```sh
+npm run test:frontend
+npm run build
+```
+
+The frontend tests currently cover:
+
+- Rendering menu products returned by the mocked API.
+- Filtering products by category.
+- Updating the cart and subtotal after adding an item.
+- Submitting a cart and displaying successful confirmation.
+
+The production build type-checks and bundles the frontend, then compiles the backend TypeScript. API-level tests, backend test coverage, Docker builds, and container smoke tests are future work.
+
+## Branches and promotion workflow
+
+The active repository branches and their current purpose are:
+
+| Branch | Purpose | Required checks / status |
+| --- | --- | --- |
+| `main` | Release baseline | `promotion-ci` and `qa-lead-signoff`; setup PR #5 is still open |
+| `stage` | Integration branch | `promotion-ci` |
+| `frontend-stage` | Frontend integration | `frontend-ci` and `promotion-ci` |
+| `backend-stage` | Backend integration | Pull requests required; no CI check is currently required |
+| `feature/qa-lead-gates` | Current setup branch | Open PR #5 to `main` |
+
+Pull requests are required on the protected branches. Force pushes and branch deletion are disabled there. The repository is used by one learner, so the required approving-review count is zero.
+
+### Intended change flow
 
 ```text
 feature/* → frontend-stage or backend-stage → stage → main
 ```
 
-Use focused feature branches and pull requests. The intended process is:
+For a frontend change:
 
-```text
-feature/* → frontend-stage (frontend CI) → stage (promotion CI) → main
-                                                               ├─ QA checklist + qa-approved label
-                                                               └─ Lead checklist + lead-approved label
-```
+1. Create a focused feature branch from `frontend-stage`.
+2. Open a pull request into `frontend-stage` and resolve the required frontend and promotion CI checks.
+3. Promote the integrated change into `stage` through a pull request; require `promotion-ci`.
+4. Open a pull request from `stage` to `main`.
+5. Complete QA and lead review evidence, then satisfy the `qa-lead-signoff` gate.
 
-In this solo learning repository, QA and lead labels/checklists are self-attested milestones, not independent approvals. A real team should use independent reviewers.
+For a backend change, use `backend-stage` as the first integration target. Add and require backend CI there before relying on it as a merge gate.
 
-## Roadmap overview
+The QA/lead gate checks for the `qa-approved` and `lead-approved` labels and completed QA and lead checklist items in the pull request. In this solo repository, those are self-attested learning checkpoints, not independent approvals. A team workflow should require actual reviewers and enforce separation of duties.
 
-| Phase | Scope | Status |
+### Current promotion setup
+
+- PR [#5](https://github.com/11vg11/kindred-coffee/pull/5) is open from `feature/qa-lead-gates` to `main`.
+- Its `promotion-ci` check passes. The `qa-lead-signoff` check fails intentionally until the required labels and checklist evidence are supplied.
+- The `promotion-ci` workflow is present on `frontend-stage` and `feature/qa-lead-gates`; it is not yet installed on `main`, `stage`, or `backend-stage`.
+- The `frontend-ci` and `promotion-ci` checks are required on `frontend-stage`; `promotion-ci` is required on `stage` and `main`.
+- `backend-stage` does not yet have a required status check.
+
+Do not treat a configured required check as proof that a workflow is available on every branch. After PR #5 is resolved, verify that each workflow runs on the target branch and that branch protection reports the expected check before making that check a merge prerequisite.
+
+## Current delivery status
+
+| Area | Status | Notes |
 | --- | --- | --- |
-| 1 | Verify application baseline | ✅ Done |
-| 2 | Establish Git controls | 🟡 Branches/protection done; checks incomplete |
-| 3 | Containerize application | ⬜ Not started |
-| 4 | Complete CI and automated tests | 🟡 Frontend test/build workflow only |
-| 5 | Publish versioned images | ⬜ Not started |
-| 6 | Provision AWS with Terraform | ⬜ Not started |
-| 7 | Configure EC2 with Ansible | ⬜ Not started |
-| 8 | Automate deployment and rollback | ⬜ Not started |
-| 9 | Run Kubernetes locally | ⬜ Not started |
-| 10 | Optional Kubernetes on AWS | ◻ Optional |
-| 11 | Monitoring, security, and recovery | ⬜ Not started |
+| Application baseline | ✅ Complete | Local storefront and API were verified |
+| Branch protections | 🟡 In progress | Branch protection is configured; backend CI is not required yet |
+| Frontend CI | ✅ Available on `frontend-stage` | Tests and frontend build run in GitHub Actions |
+| Promotion CI | 🟡 In progress | Workflow is on `frontend-stage`; setup PR #5 is still open |
+| QA/lead gate | 🟡 In progress | Self-attestation gate is defined; PR #5 remains intentionally blocked |
+| Backend automated tests | ⬜ Not started | No backend test suite yet |
+| Persistent storage | ⬜ Not started | Orders are in memory |
+| Docker and Compose | ⬜ Not started | No container definitions |
+| Image publishing and deployment | ⬜ Not started | No registry or deployment workflow |
+| Cloud infrastructure | ⬜ Not started | No Terraform or Ansible configuration |
+| Kubernetes | ⬜ Not started | No local or cloud cluster configuration |
+| Monitoring and recovery | ⬜ Not started | No production logging, alerting, or backup process |
 
-## Phase 1 — Verify the application baseline
+## Infrastructure roadmap
 
-**Status: ✅ Done**
+Work through these phases in order. Keep deployment and cloud provisioning out of scope until the application tests and container behavior are reliable.
 
-- ✅ Confirmed repository structure, npm workspaces, and actual stack.
-- ✅ Verified local startup, health and menu APIs, and frontend-to-backend proxying.
-- ✅ Completed a browser checkout and verified order validation and calculated total.
-- ✅ Ran `npm ci` and `npm run build`.
-- ✅ Confirmed orders are in memory and disappear when the backend restarts.
-- ✅ Documented startup and architecture in the root README.
-- ⚠️ No database, `.env.example`, or persistent order storage exists. The `PORT` environment variable is optional.
+### 1. Complete application validation
 
-**Result:** the current MVP runs locally and can complete an order. It is not production-ready for real orders because data is not persisted.
+- Add backend unit and API integration tests.
+- Cover health response, menu schema, valid and invalid orders, trusted pricing, and order retrieval.
+- Extend frontend tests for quantity limits, request failures, and error messages.
+- Add explicit lint and type-check scripts if they improve local and CI feedback.
 
-## Phase 2 — Establish Git controls
+**Exit criteria:** relevant tests and builds pass consistently on pull requests.
 
-**Status: 🟡 Partially done**
+### 2. Finish GitHub promotion controls
 
-- ✅ Created `stage`, `backend-stage`, and correctly spelled `frontend-stage` from the application baseline.
-- ✅ Protected `main`, `stage`, `backend-stage`, and `frontend-stage` with pull-request requirements.
-- ✅ Required the `frontend-ci` check on `frontend-stage`.
-- ✅ Require `promotion-ci` on `stage`.
-- ✅ Require `promotion-ci` and `qa-lead-signoff` on `main`.
-- ✅ Require both `frontend-ci` and `promotion-ci` on `frontend-stage`.
-- ⬜ Install `promotion-ci` on `backend-stage` before making it a required check there.
-- ⬜ Add required CI checks to `backend-stage`, `stage`, and `main` after those workflows exist.
-- ⬜ Decide whether to remove the obsolete `fronend-stage` branch; do not delete it without approval.
-- ⬜ Add reviewer requirements if the repository gains additional reviewers.
+- Merge and verify the promotion workflow setup through the intended review process.
+- Install and run the workflow on each intended promotion target.
+- Add backend CI to `backend-stage` before requiring its status check.
+- Verify status-check names and branch protection settings against actual Actions runs.
+- Replace self-attested QA/lead labels with independent reviews if additional reviewers join.
 
-**Acceptance:** each protected branch requires its appropriate passing CI check before merge.
+**Exit criteria:** each protected merge target has an available, passing required CI check.
 
-## Phase 3 — Containerize the application
+### 3. Add persistence
 
-**Status: ⬜ Not started**
+- Select a database and define order storage and migration strategy.
+- Move order creation and retrieval behind a persistence layer.
+- Use isolated test data or a disposable test database in CI.
+- Test that orders remain available after an application restart.
 
-- [ ] Add frontend and backend Dockerfiles using multi-stage builds and maintained base images.
-- [ ] Run the backend as a non-root user and add a `.dockerignore`.
-- [ ] Choose and implement production routing. The current Vite proxy is for development only; Nginx is one option, not an existing component.
-- [ ] Add a Compose file with frontend, backend, internal networking, health checks, and restart policies.
-- [ ] Choose persistent storage before claiming order data survives restarts.
-- [ ] Verify container recreation and data behavior without deleting data volumes.
+**Exit criteria:** order behavior is tested against persistent storage without leaking test data.
 
-**Acceptance:** one documented command starts the containerized app; the website can reach the API through the production routing layer.
+### 4. Containerize and smoke-test
 
-## Phase 4 — Complete continuous integration
+- Create production Dockerfiles with multi-stage builds, minimal runtime images, and non-root execution.
+- Add `.dockerignore` and a Compose configuration for local integration.
+- Select production routing; the Vite proxy is development-only.
+- Add health checks and smoke tests through the public application entry point.
+- Verify logs and cleanup behavior when a smoke test fails.
 
-**Status: 🟡 Partially done**
+**Exit criteria:** a documented command starts the app containers, and frontend-to-API behavior works through production routing.
 
-### Existing CI
+### 5. Publish versioned images
 
-- ✅ On pull requests and pushes to `frontend-stage`, GitHub Actions runs `npm ci`, the frontend component test, and the frontend production build.
-- ✅ Failure posts a comment on the pull request with a link to the run.
-- ✅ The `frontend-ci` check is required before merging into `frontend-stage`.
-- 🟡 The frontend has coverage for menu rendering, category filtering, cart totals, checkout, and the “Surprise me” feature on `frontend-stage`.
-- 🟡 Promotion CI runs frontend tests and both production builds for PRs to `stage` and `main`; the same workflow is installed on `frontend-stage` so feature branches inherit it.
-- 🟡 Main-promotion QA and lead checklists/labels are required self-attestation gates; they are not independent approvals.
+- Publish frontend and backend images to GHCR only from trusted, passing workflows.
+- Tag images with immutable commit identifiers and release versions.
+- Scan images and document which vulnerability findings block publication.
+- Verify images can be pulled and run without source files on the host.
 
-### Work still needed
+**Exit criteria:** every deployed image can be traced to source and a passing CI run.
 
-- [ ] Add lint and explicit type-check scripts where useful; the frontend build currently runs TypeScript checking as part of Vite's build command.
-- [ ] Add backend unit tests and API integration tests.
-- [ ] Test health, menu shape, valid/invalid orders, trusted pricing, and order retrieval.
-- [ ] Add frontend tests for menu rendering/filtering, quantity controls, checkout success, and API errors.
-- [ ] Add a root CI workflow that runs all relevant checks for pull requests to `backend-stage`, `frontend-stage`, `stage`, and `main`.
-- [ ] Build both production applications in CI.
-- [ ] Configure the passing checks as required branch protection checks on all merge targets.
-- [ ] Keep CI test data isolated; use temporary storage or a test database once persistence is implemented.
+### 6. Provision and configure infrastructure
 
-**Acceptance:** every application pull request runs relevant tests and builds; failed checks block merging and link to clear failure logs.
+- Confirm AWS access, region, budget, and cleanup expectations before creating resources.
+- Provision only the required infrastructure with Terraform and protect state and credentials.
+- Configure a clean host with Ansible; keep the playbook idempotent.
+- Restrict network access and keep data and service ports private where possible.
 
-## Phase 5 — Publish container images
+**Exit criteria:** infrastructure can be reproduced from reviewed configuration and configured from a clean host.
 
-**Status: ⬜ Not started**
+### 7. Deploy, observe, and recover
 
-- [ ] Publish frontend and backend images to GitHub Container Registry (GHCR).
-- [ ] Publish only from trusted branches/releases after checks pass.
-- [ ] Tag images with the source commit SHA and release versions.
-- [ ] Scan images and review vulnerabilities.
-- [ ] Verify the published images can be pulled and run without source code on the server.
+- Deploy to staging only after CI passes; define a deliberate release process for `main`.
+- Use GitHub Environments, least-privilege permissions, and AWS OIDC where supported.
+- Add post-deployment health checks, logs, alerts, and deployment serialization.
+- Record image versions and test rollback.
+- Back up persistent data and verify restoration.
 
-**Acceptance:** deployments use immutable, traceable image versions.
+**Exit criteria:** releases are traceable, observable, and recoverable.
 
-## Phase 6 — Provision AWS with Terraform
+### 8. Learn Kubernetes (optional)
 
-**Status: ⬜ Not started**
+- Start with a local cluster such as Minikube.
+- Add Deployments, Services, probes, resource limits, configuration, and ingress.
+- Add persistent storage only after the storage design is understood.
+- Practice rollout, workload recovery, and rollback before considering a cloud cluster.
 
-- [ ] Choose an AWS region and confirm access, budget, and cleanup expectations.
-- [ ] Define only the required network, server, and security-group resources.
-- [ ] Restrict SSH and expose only required public ports; keep service and data ports private.
-- [ ] Define variables, outputs, tags, and example configuration without credentials.
-- [ ] Secure Terraform state and locking before using CI for infrastructure.
-- [ ] Review plans before applying changes and document safe cleanup.
+AWS Kubernetes is optional learning work and can incur substantial cost. A single-node lab is not highly available.
 
-**Acceptance:** Terraform reproducibly provisions the reviewed infrastructure. AWS resources can incur charges.
+## Security and operational guidance
 
-## Phase 7 — Configure EC2 with Ansible
-
-**Status: ⬜ Not started**
-
-- [ ] Build inventory from verified Terraform outputs.
-- [ ] Install and configure Docker and Compose on a clean server.
-- [ ] Deploy the Compose configuration and securely supply runtime settings.
-- [ ] Pull exact image versions and verify health through the public entry point.
-- [ ] Run the playbook twice to verify idempotence.
-
-**Acceptance:** Ansible can configure a clean server into a working app host.
-
-## Phase 8 — Automate deployment and rollback
-
-**Status: ⬜ Not started**
-
-- [ ] Deploy to staging only after CI passes.
-- [ ] Define a deliberate production release process from `main`.
-- [ ] Use GitHub Environments, least-privilege credentials, and AWS OIDC where appropriate.
-- [ ] Prevent overlapping deployments to the same environment.
-- [ ] Run post-deployment health and smoke checks.
-- [ ] Record the previous image versions and test rollback.
-
-**Acceptance:** staging and production releases are traceable, health-checked, and recoverable.
-
-## Phase 9 — Run Kubernetes locally
-
-**Status: ⬜ Not started**
-
-- [ ] Use Minikube or another local cluster.
-- [ ] Define frontend/backend Deployments and internal Services.
-- [ ] Add configuration, securely supplied Secrets, health probes, and resource limits.
-- [ ] Add persistent storage only after the application storage design supports it.
-- [ ] Configure ingress and verify routing.
-- [ ] Practice rollout, Pod recovery, and rollback.
-
-**Acceptance:** the app runs locally in Kubernetes and recovers from workload restarts.
-
-## Phase 10 — Optional Kubernetes on AWS
-
-**Status: ◻ Optional**
-
-Choose either K3s on EC2 (more cluster operations) or EKS (managed service, more cost and configuration) only after local Kubernetes is understood.
-
-- [ ] Provision the selected cluster with Terraform.
-- [ ] Restrict cluster API access and configure image access and persistent storage.
-- [ ] Deploy through CI/CD and verify health and rollback.
-
-**Acceptance:** the selected AWS cluster receives reproducible releases. A single-node lab is not highly available.
-
-## Phase 11 — Monitoring, security, and recovery
-
-**Status: ⬜ Not started**
-
-- [ ] Collect application and deployment logs; monitor availability and host/container resources.
-- [ ] Add useful alerts; Prometheus and Grafana are optional tools.
-- [ ] Scan dependencies and images; scan committed content for secrets.
-- [ ] Set a clear vulnerability policy for which findings block merges.
-- [ ] Configure HTTPS when a hostname is available.
-- [ ] Back up persistent data and verify a restore.
-- [ ] Document incident triage and release rollback.
-
-**Acceptance:** failures can be detected, diagnosed, and recovered from using documented procedures.
+- Never commit credentials, private keys, `.env` files, or Terraform state.
+- Commit only safe example configuration; provide secrets at runtime through a secrets manager or GitHub Environment.
+- Keep GitHub Actions permissions and cloud roles as narrow as practical.
+- Do not place credentials in Dockerfiles, source-controlled Compose files, logs, or container images.
+- Review Terraform plans before applying them. Cloud resources can incur charges; document and verify cleanup.
+- Define a vulnerability policy before turning dependency or image scan results into merge blockers.
+- Treat backups as unverified until a restore has been tested.
 
 ## Recommended next steps
 
-1. Extend the existing frontend CI to run on all relevant PR targets and add required check protection.
-2. Add backend tests for API validation and pricing, plus frontend behavior tests.
-3. Implement persistent order storage and tests for retrieving data after restart.
-4. Containerize the real frontend/backend structure and add container smoke tests through the production routing layer.
-5. Add image publishing and deployment only after the previous checks pass.
-
-## Secrets and safety
-
-- Never commit `.env` files, private keys, credentials, or Terraform state.
-- Commit only safe example configuration.
-- Treat Terraform state and plans as potentially sensitive.
-- Use GitHub Secrets/Environments or cloud identity federation for deployment credentials.
-- Do not put credentials in Dockerfiles or container images.
-- Keep cloud access and workflow permissions as limited as possible.
+1. Resolve PR #5’s setup checks and verify workflow availability on the protected branches.
+2. Add backend API tests and frontend error-path coverage.
+3. Implement persistent order storage and restart/retrieval tests.
+4. Containerize the frontend and backend and test their production routing together.
+5. Add image publishing and deployment only after the preceding checks pass.
