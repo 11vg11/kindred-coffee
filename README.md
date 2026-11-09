@@ -19,8 +19,4 @@ Open the frontend URL printed by Vite (usually `http://localhost:5173`). The API
 
 To create production builds, run `npm run build`. To run the built API, run `npm start`.
 
-Run the frontend component tests with `npm run test:frontend`.
-
-Pull requests targeting `frontend-stage` run the frontend tests and production build in GitHub Actions. A failed check blocks merging and posts a failure notice on the pull request.
-
 Orders are kept in process memory for this MVP and are cleared when the API restarts. Add a database and persistent repository before using it for real orders.
