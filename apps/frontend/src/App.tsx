@@ -45,6 +45,12 @@ export default function App() {
     });
   }
 
+  function surpriseMe() {
+    if (products.length === 0) return;
+    const product = products[Math.floor(Math.random() * products.length)];
+    addToCart(product);
+  }
+
   function changeQuantity(productId: string, amount: number) {
     setCart((current) =>
       current
@@ -140,7 +146,17 @@ export default function App() {
                 </button>
               ))}
             </div>
-            <span className="menu-count">{visibleProducts.length} THINGS TO LOVE</span>
+            <div className="menu-actions">
+              <span className="menu-count">{visibleProducts.length} THINGS TO LOVE</span>
+              <button
+                className="surprise-button"
+                disabled={loading || products.length === 0}
+                onClick={surpriseMe}
+                type="button"
+              >
+                <span aria-hidden="true">✳</span> Surprise me
+              </button>
+            </div>
           </div>
 
           {error && <div className="notice error-notice" role="alert">{error}</div>}
