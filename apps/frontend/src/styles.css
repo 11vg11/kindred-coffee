@@ -25,13 +25,28 @@ button, a { font: inherit; }
 a { color: inherit; text-decoration: none; }
 button { color: inherit; }
 
-.app-shell { max-width: 1600px; margin: 0 auto; overflow: hidden; }
+.app-shell { max-width: 1600px; margin: 0 auto; overflow: hidden; background: var(--paper); color: var(--ink); transition: background-color .3s ease; }
+.app-shell.cozy-mode {
+  --paper: #fbf2f3;
+  --ink: #392932;
+  --orange: #a64e70;
+  --green: #65506b;
+  --line: #e8d7dc;
+}
+.cozy-mode .hero { background: #f2e3e7; }
+.cozy-mode .order-section { background: #eee5ef; }
+.cozy-mode .story-strip { background: #dbcbdc; color: #493c50; }
+.hero, .order-section, .story-strip { transition: background-color .3s ease; }
 .topbar { height: 82px; padding: 0 8.3%; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--line); }
 .brand { display: inline-flex; align-items: center; gap: 10px; font-size: 11px; letter-spacing: 1.65px; font-weight: 700; }
 .brand-mark { width: 31px; height: 31px; display: grid; place-items: center; border-radius: 50%; color: var(--paper); background: var(--orange); font-family: "Playfair Display", serif; font-size: 19px; letter-spacing: -1px; }
 .brand-light { font-weight: 400; }
 .top-links { display: flex; gap: 38px; color: #615d54; font-size: 12px; }
 .top-links a:hover, .cart-link:hover { color: var(--orange); }
+.topbar-actions { display: flex; align-items: center; gap: 18px; }
+.theme-toggle { display: inline-flex; align-items: center; gap: 6px; padding: 8px 11px; border: 1px solid var(--line); background: transparent; color: var(--ink); font-size: 10px; cursor: pointer; transition: border-color .2s, color .2s, background-color .2s; }
+.theme-toggle:hover { border-color: var(--orange); color: var(--orange); }
+.theme-toggle:focus-visible { outline: 2px solid var(--orange); outline-offset: 3px; }
 .cart-link { display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 600; }
 .cart-count { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #e8e3d8; font-size: 11px; }
 
@@ -150,6 +165,8 @@ h1 em, .order-intro h2 em, .story-strip em { color: var(--orange); font-weight: 
 }
 @media (max-width: 640px) {
   .topbar { height: 68px; padding: 0 5%; }
+  .topbar-actions { gap: 10px; }
+  .theme-toggle { padding: 7px 8px; font-size: 9px; }
   .top-links { display: none; }
   .hero { min-height: auto; padding: 62px 8% 25px; grid-template-columns: 1fr; }
   h1 { font-size: 72px; }
